@@ -1,0 +1,111 @@
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+from .models import Medicine, MedicineSchedule, Notification, MedicineIntake, Caregiver
+from .serializers import (
+    UserSerializer,
+    MedicineSerializer,
+    MedicineScheduleSerializer,
+    NotificationSerializer,
+    MedicineIntakeSerializer,
+    CaregiverSerializer,
+)
+
+
+class MeViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        return Response(UserSerializer(request.user).data)
+
+
+class MedicineViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicineSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Medicine.objects.filter(user=self.request.user).order_by("-id")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class MedicineScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicineScheduleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return MedicineSchedule.objects.filter(medicine__user=self.request.user)
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by("-created_at")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def mark_read(self, request, pk=None):
+        notif = self.get_object()
+        notif.status = "read"
+        notif.save()
+        return Response(NotificationSerializer(notif).data)
+
+    @action(detail=False, methods=['post'])
+    def create_test_notification(self, request):
+        """Create a test notification for the current user"""
+        notification = Notification.objects.create(
+            user=request.user,
+            title="Test Notification",
+            message="This is a test notification to verify the system is working.",
+            type="test",
+            status="pending"
+        )
+        return Response(NotificationSerializer(notification).data, status=status.HTTP_201_CREATED)
+
+
+class MedicineIntakeViewSet(viewsets.ModelViewSet):
+    serializer_class = MedicineIntakeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return MedicineIntake.objects.filter(medicine__user=self.request.user).order_by("-scheduled_time")
+
+
+class CaregiverViewSet(viewsets.ModelViewSet):
+    serializer_class = CaregiverSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Caregiver.objects.filter(user=self.request.user).order_by("-created_at")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class AuthViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.AllowAny]
+
+    @action(detail=False, methods=["post"], url_path="signup")
+    def signup(self, request):
+        email = request.data.get("email", "").strip().lower()
+        password = request.data.get("password", "")
+        full_name = request.data.get("full_name", "")
+        if not email or not password:
+            return Response({"error": "email and password required"}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username=email).exists():
+            return Response({"error": "account already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.create(
+            username=email,
+            email=email,
+            first_name=full_name[:150],
+            password=make_password(password),
+        )
+        return Response(UserSerializer(user).data)
+
