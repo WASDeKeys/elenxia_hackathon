@@ -1,65 +1,46 @@
 import { useState, useEffect } from "react";
-import { apiFetch } from "@/lib/apiClient";
-import { useAuth } from "./useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
+import { Heart, Mail, Lock, User, Phone } from "lucide-react";
+import { apiFetch, setAccessToken } from "@/lib/apiClient";
+import { useNavigate } from "react-router-dom";
+// Removed legacy Lovable icon asset import
 
-export interface Medicine {
-  id: string;
-  name: string;
-  dosage: string;
-  type: string;
-  remaining_count: number;
-  refill_threshold: number;
-  instructions?: string;
-  side_effects?: string;
-  schedules?: MedicineSchedule[];
-  next_dose?: string;
-  taken?: boolean;
-}
-
-export interface MedicineSchedule {
-  id: string;
-  medicine_id: string;
-  time_of_day: string;
-  days_of_week: number[];
-  is_active: boolean;
-}
-
-export interface NewMedicine {
-  name: string;
-  dosage: string;
-  type: string;
-  times: string[];
-  remaining: number;
-}
-
-export const useMedicines = () => {
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+const Auth = () => {
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const fetchMedicines = async () => {
-    if (!user) {
-      setMedicines([]);
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    const token = sessionStorage.getItem("pp_token");
+    if (token) navigate("/");
+  }, [navigate]);
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const data = await apiFetch('/medicines/');
+      await apiFetch('/auth/signup/', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, full_name: fullName, phone_number: phoneNumber }),
+      });
 
-      const processedMedicines = (data || []).map((medicine: any) => ({
-        ...medicine,
-        schedules: medicine.schedules || [],
-        next_dose: getNextDose(medicine.schedules || []),
-        taken: false, // This would be calculated from today's intakes
-      })) || [];
-
-      setMedicines(processedMedicines);
+      toast({
+        title: "Success!",
+        description: "Please check your email to confirm your account.",
+      });
     } catch (error: any) {
       toast({
-        title: "Error fetching medicines",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -68,84 +49,221 @@ export const useMedicines = () => {
     }
   };
 
-  const addMedicine = async (newMedicine: NewMedicine) => {
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const tokens = await apiFetch('/auth/token/', {
+        method: 'POST',
+        body: JSON.stringify({ username: email, password }),
+      });
+      setAccessToken(tokens.access);
+      sessionStorage.setItem("pp_token", tokens.access);
+
+      toast({
+        title: "Welcome back!",
+        description: "You have been successfully signed in.",
+      });
+      
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMedicine = async (medicineId: string) => {
     if (!user) return;
 
     try {
-      const medicine = await apiFetch('/medicines/', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: newMedicine.name,
-          dosage: newMedicine.dosage,
-          type: newMedicine.type,
-          remaining_count: newMedicine.remaining,
-          refill_threshold: 0,
-        })
+      await apiFetch(`/medicines/${medicineId}/`, {
+        method: 'DELETE',
       });
 
-      const scheduleInserts = (newMedicine.times || []).map((time) => ({
-        medicine: medicine.id,
-        time_of_day: time,
-        days_of_week: [1,2,3,4,5,6,7],
-        is_active: true,
-      }));
-      if (scheduleInserts.length > 0) {
-        for (const s of scheduleInserts) {
-          await apiFetch('/schedules/', { method: 'POST', body: JSON.stringify(s) });
-        }
-      }
-
       toast({
-        title: "Medicine added successfully",
-        description: `${newMedicine.name} has been added to your medication list.`,
+        title: "Medicine deleted",
+        description: "The medicine has been removed from your list.",
       });
 
       // Refresh the medicines list
       await fetchMedicines();
     } catch (error: any) {
       toast({
-        title: "Error adding medicine",
+        title: "Error deleting medicine",
         description: error.message,
         variant: "destructive",
       });
     }
   };
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">PillPall</h1>
+              <p className="text-muted-foreground">Your health companion</p>
+            </div>
+          </div>
+        </div>
 
-  const getNextDose = (schedules: MedicineSchedule[]): string => {
-    if (!schedules || schedules.length === 0) return "No schedule";
-    
-    const now = new Date();
-    const today = now.getDay() === 0 ? 7 : now.getDay(); // Convert Sunday from 0 to 7
-    const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        <Card className="pill-card">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center space-x-2">
+              <Heart className="h-5 w-5 text-primary" />
+              <span>Welcome to PillPall</span>
+            </CardTitle>
+            <CardDescription>
+              Manage your medications with confidence and care
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="signin" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
 
-    // Find next dose today or next day
-    for (const schedule of schedules) {
-      if (!schedule.is_active || !schedule.days_of_week.includes(today)) continue;
-      
-      if (schedule.time_of_day > currentTime) {
-        return schedule.time_of_day;
-      }
-    }
+              {/* Sign In Tab */}
+              <TabsContent value="signin">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signin-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className="pl-10"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
 
-    // If no more doses today, find first dose tomorrow
-    const tomorrow = today === 7 ? 1 : today + 1;
-    const tomorrowSchedule = schedules.find(s => 
-      s.is_active && s.days_of_week.includes(tomorrow)
-    );
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signin-password"
+                        type="password"
+                        placeholder="Enter your password"
+                        className="pl-10"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
 
-    return tomorrowSchedule 
-      ? `${tomorrowSchedule.time_of_day} Tomorrow`
-      : "No upcoming dose";
-  };
+                  <Button
+                    type="submit"
+                    className="w-full medicine-button bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                    disabled={loading}
+                  >
+                    {loading ? "Signing In..." : "Sign In"}
+                  </Button>
+                </form>
+              </TabsContent>
 
-  useEffect(() => {
-    fetchMedicines();
-  }, [user]);
+              {/* Sign Up Tab */}
+              <TabsContent value="signup">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullname">Full Name</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="fullname"
+                        type="text"
+                        placeholder="Enter your full name"
+                        className="pl-10"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
 
-  return {
-    medicines,
-    loading,
-    addMedicine,
-    refetchMedicines: fetchMedicines,
-  };
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        className="pl-10"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className="pl-10"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Create a password"
+                        className="pl-10"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full medicine-button bg-gradient-to-r from-secondary to-primary hover:opacity-90"
+                    disabled={loading}
+                  >
+                    {loading ? "Creating Account..." : "Create Account"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <div className="text-center text-sm text-muted-foreground">
+          <p>Secure authentication powered by Supabase</p>
+        </div>
+      </div>
+    deleteMedicine,
+    </div>
+  );
 };
+
+export default Auth;

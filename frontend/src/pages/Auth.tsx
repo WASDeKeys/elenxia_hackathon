@@ -65,7 +65,8 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have been successfully signed in.",
       });
-      navigate("/");
+      
+      window.location.href = "/";
     } catch (error: any) {
       toast({
         title: "Error",
