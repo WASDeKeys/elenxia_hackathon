@@ -107,6 +107,7 @@ class AuthViewSet(viewsets.ViewSet):
         email = request.data.get("email", "").strip().lower()
         password = request.data.get("password", "")
         full_name = request.data.get("full_name", "")
+        first_name, last_name = full_name.split(" ", 1) if " " in full_name else (full_name, "")
         if not email or not password:
             return Response({"error": "email and password required"}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(username=email).exists():
@@ -114,7 +115,8 @@ class AuthViewSet(viewsets.ViewSet):
         user = User.objects.create(
             username=email,
             email=email,
-            first_name=full_name[:150],
+            first_name=first_name,
+            last_name=last_name,
             password=make_password(password),
         )
         return Response(UserSerializer(user).data)

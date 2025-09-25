@@ -13,8 +13,17 @@ const twilioSid = process.env.TWILIO_ACCOUNT_SID || "";
 const twilioToken = process.env.TWILIO_AUTH_TOKEN || "";
 const twilioFrom = process.env.TWILIO_FROM || "";
 
+
+if (!twilioSid || !twilioToken || !twilioFrom) {
+  console.error('Twilio credentials missing or invalid. Check .env file.');
+}
 const canSend = twilioSid && twilioToken && twilioFrom;
 const client = canSend ? twilio(twilioSid, twilioToken) : null;
+
+if (!canSend) {
+  console.warn("!!! TWILIO IS NOT CONFIGURED. SMS MESSAGES WILL NOT BE SENT.");
+  console.warn("!!! Create a .env file in backend/node and add your Twilio credentials.");
+}
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 
@@ -32,8 +41,16 @@ app.post("/api/sms", async (req, res) => {
 });
 
 const port = process.env.PORT || 8787;
+
 app.listen(port, () => {
   console.log(`PillPall SMS server listening on :${port}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
 });
 
 

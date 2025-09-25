@@ -18,7 +18,7 @@ class Command(BaseCommand):
                     'message': f"Reminder: Take your medicine {intake.medicine.name} at {intake.scheduled_time.strftime('%H:%M')}"
                 }
                 try:
-                    requests.post('http://localhost:3000/sms', json=payload)
+                    requests.post('http://localhost:8787/api/sms', json=payload)
                     intake.status = 'notified'
                     intake.save()
                     self.stdout.write(self.style.SUCCESS(f"SMS sent to {user.phone_number} for {intake.medicine.name}"))
