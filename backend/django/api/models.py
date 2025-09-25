@@ -1,12 +1,29 @@
 from django.conf import settings
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+
+class User(AbstractUser):
+    sms_enabled = models.BooleanField(default=False)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    name = models.CharField(max_length=200)
+    dosage = models.CharField(max_length=100)
+    type = models.CharField(max_length=50)
+    remaining_count = models.IntegerField(default=0)
+    refill_threshold = models.IntegerField(default=0)
+    instructions = models.TextField(blank=True, null=True)
+    side_effects = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'api'
 
 
 class Medicine(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="medicines")
     name = models.CharField(max_length=200)
     dosage = models.CharField(max_length=100)
-    type = models.CharField(max_length=50)
+    med_type = models.CharField(max_length=50)
     remaining_count = models.IntegerField(default=0)
     refill_threshold = models.IntegerField(default=0)
     instructions = models.TextField(blank=True, null=True)

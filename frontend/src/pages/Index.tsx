@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import MedicineCard from "../components/MedicineCard";
+import useMedicines from "../hooks/useMedicines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,10 +40,10 @@ const Auth = () => {
         title: "Success!",
         description: "Please check your email to confirm your account.",
       });
-    } catch (error: any) {
+  } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+  description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -49,10 +51,10 @@ const Auth = () => {
     }
   };
 
+  const { medicines, loading: medicinesLoading, addMedicine, deleteMedicine } = useMedicines();
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const tokens = await apiFetch('/auth/token/', {
         method: 'POST',
@@ -60,17 +62,15 @@ const Auth = () => {
       });
       setAccessToken(tokens.access);
       sessionStorage.setItem("pp_token", tokens.access);
-
       toast({
         title: "Welcome back!",
         description: "You have been successfully signed in.",
       });
-      
       window.location.href = "/";
-  const { medicines, loading: medicinesLoading, addMedicine, deleteMedicine } = useMedicines();
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -79,7 +79,9 @@ const Auth = () => {
   };
 
   const handleDeleteMedicine = async (medicineId: string) => {
-    await deleteMedicine(medicineId);
+    if (deleteMedicine) {
+      await deleteMedicine(medicineId);
+    }
   };
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -88,13 +90,15 @@ const Auth = () => {
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center space-x-3 mb-4">
             <div>
-                <MedicineCard 
-                  key={medicine.id} 
-                  medicine={medicine} 
-                  onEdit={handleEditMedicine}
-                  onDelete={handleDeleteMedicine}
-                />
-              <p className="text-muted-foreground">Your health companion</p>
+                {medicines && medicines.length > 0 && medicines.map((medicine) => (
+                  <MedicineCard 
+                    key={medicine.id} 
+                    medicine={medicine} 
+                    onEdit={() => {}} // Implement edit logic if needed
+                    onDelete={handleDeleteMedicine}
+                  />
+                ))}
+                <p className="text-muted-foreground">Your health companion</p>
             </div>
           </div>
         </div>
