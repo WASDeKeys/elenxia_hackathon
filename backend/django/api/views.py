@@ -37,8 +37,18 @@ class MedicineScheduleViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return MedicineSchedule.objects.filter(medicine__user=self.request.user)
+        queryset = MedicineSchedule.objects.filter(medicine__user=self.request.user)
+        medicine_id = self.request.query_params.get('medicine', None)
+        if medicine_id is not None:
+            queryset = queryset.filter(medicine_id=medicine_id)
+        return queryset
 
+    def perform_create(self, serializer):
+        # Ensure the medicine belongs to the current user
+        medicine = serializer.validated_data['medicine']
+        if medicine.user != self.request.user:
+            raise PermissionError("You can only create schedules for your own medicines")
+        serializer.save()
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

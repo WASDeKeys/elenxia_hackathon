@@ -6,17 +6,18 @@ from .models import Medicine, MedicineSchedule, Notification, MedicineIntake, Ca
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email"]
+        fields = ["id", "username", "email", "first_name"]
 
 
 class MedicineScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicineSchedule
-        fields = ["id", "time_of_day", "days_of_week", "is_active", "medicine"]
+        fields = ["id", "time_of_day", "days_of_week", "is_active"]
 
 
 class MedicineSerializer(serializers.ModelSerializer):
     schedules = MedicineScheduleSerializer(many=True, read_only=True)
+    type = serializers.CharField(source='med_type')
 
     class Meta:
         model = Medicine
@@ -30,6 +31,7 @@ class MedicineSerializer(serializers.ModelSerializer):
             "instructions",
             "side_effects",
             "schedules",
+            "created_at",
         ]
 
 

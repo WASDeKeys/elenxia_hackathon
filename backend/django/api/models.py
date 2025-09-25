@@ -6,14 +6,6 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     sms_enabled = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    name = models.CharField(max_length=200)
-    dosage = models.CharField(max_length=100)
-    type = models.CharField(max_length=50)
-    remaining_count = models.IntegerField(default=0)
-    refill_threshold = models.IntegerField(default=0)
-    instructions = models.TextField(blank=True, null=True)
-    side_effects = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         app_label = 'api'
@@ -30,6 +22,8 @@ class Medicine(models.Model):
     side_effects = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.name} - {self.dosage}"
 
 class MedicineSchedule(models.Model):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, related_name="schedules")
@@ -37,6 +31,8 @@ class MedicineSchedule(models.Model):
     days_of_week = models.JSONField(default=list)  # [1..7]
     is_active = models.BooleanField(default=True)
 
+    def __str__(self):
+        return f"{self.medicine.name} at {self.time_of_day}"
 
 class Notification(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
@@ -47,6 +43,8 @@ class Notification(models.Model):
     scheduled_for = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
 
 class MedicineIntake(models.Model):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, related_name="intakes")
@@ -56,6 +54,8 @@ class MedicineIntake(models.Model):
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.medicine.name} - {self.status}"
 
 class Caregiver(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="caregivers")
@@ -67,3 +67,5 @@ class Caregiver(models.Model):
     emergency_contact = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.name} - {self.user.username}"
